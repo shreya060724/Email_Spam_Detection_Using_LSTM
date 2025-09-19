@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+model/predictions.db
+.ipynb_checkpoints/
+*.log
+.DS_Store

@@ -45,12 +45,14 @@ class EnsembleService:
     additional heuristics (e.g., URL risk) for improved robustness.
     """
 
-    def __init__(self, lstm_service: LSTMService, url_weight: float = 0.2, header_weight: float = 0.3):
+    def __init__(self, lstm_service: LSTMService, url_weight: float = 0.25, header_weight: float = 0.35, phrase_weight: float = 0.15, display_weight: float = 0.10):
         self.lstm = lstm_service
         self.url_weight = url_weight
         self.header_weight = header_weight
+        self.phrase_weight = phrase_weight
+        self.display_weight = display_weight
 
-    def blend(self, cleaned_text: str, url_risk_score: float, header_findings: Optional[Dict] = None) -> Dict[str, float]:
+    def blend(self, cleaned_text: str, url_risk_score: float, header_findings: Optional[Dict] = None, phrase_score: float = 0.0, display_mismatch: float = 0.0) -> Dict[str, float]:
         spam_prob, category_probs = self.lstm.predict(cleaned_text)
 
         # Header-based risk: penalize fail signals; unknown contributes little
@@ -65,9 +67,15 @@ class EnsembleService:
             header_risk = float(np.clip(header_risk, 0.0, 1.0))
 
         # Soft-vote: weighted average between LSTM, URL heuristic, and SBERT heuristic
-        base_weight = 1.0 - self.url_weight - self.header_weight
+        base_weight = 1.0 - self.url_weight - self.header_weight - self.phrase_weight - self.display_weight
         base_weight = max(0.0, base_weight)
-        blended_spam = base_weight * spam_prob + self.url_weight * url_risk_score + self.header_weight * header_risk
+        blended_spam = (
+            base_weight * spam_prob
+            + self.url_weight * url_risk_score
+            + self.header_weight * header_risk
+            + self.phrase_weight * float(np.clip(phrase_score, 0.0, 1.0))
+            + self.display_weight * float(np.clip(display_mismatch, 0.0, 1.0))
+        )
         blended_spam = float(np.clip(blended_spam, 0.0, 1.0))
 
         return {

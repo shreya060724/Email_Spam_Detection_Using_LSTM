@@ -11,6 +11,7 @@ from services.model_service import LSTMService, EnsembleService
 from services.url_intel import extract_urls, analyze_urls, compute_url_risk
 from services.header_auth import parse_auth_headers
 from services.homograph import detect_homograph
+from services.heuristics import phishing_phrase_score, display_name_domain_mismatch, apply_allowlist
 import pickle
 
 
@@ -85,7 +86,15 @@ def predict():
     # Use LSTM for spam probability and category distribution; blend with URL, headers, SBERT
     # Parse headers before blending to incorporate header risk
     header_findings = parse_auth_headers(raw_headers)
-    blended = ensemble.blend(cleaned_text=cleaned_text, url_risk_score=url_risk_score, header_findings=header_findings)
+    # Heuristic boosters
+    phrase_score = phishing_phrase_score(message)
+    display_mismatch = display_name_domain_mismatch(raw_headers)
+
+    blended = ensemble.blend(cleaned_text=cleaned_text,
+                             url_risk_score=url_risk_score,
+                             header_findings=header_findings,
+                             phrase_score=phrase_score,
+                             display_mismatch=display_mismatch)
     spam_prob = blended['spam_prob']
     category_probs = np.array(blended['category_probs']) if blended['category_probs'] else np.array([])
 
@@ -106,7 +115,8 @@ def predict():
     elif header_fail or (has_risky_url and url_risk_score > 0.40):
         spam_prob = max(spam_prob, 0.75)
 
-    # Slightly more sensitive threshold
+    # Apply allowlist attenuation then final threshold
+    spam_prob = apply_allowlist(spam_prob, raw_headers)
     prediction = "Spam" if spam_prob > 0.45 else "Not Spam"
     spam_pct = round(spam_prob * 100, 2)
     notspam_pct = round((1 - spam_prob) * 100, 2)
