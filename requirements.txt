@@ -1,0 +1,13 @@
+flask
+numpy
+pandas
+tensorflow
+scikit-learn
+nltk
+keras
+matplotlib
+seaborn
+pickle-mixin
+flask-moment
+gunicorn
+idna

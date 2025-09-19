@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Prediction History</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f4f6f8;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .table thead {
+            background-color: #343a40;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2 class="text-center mb-4">📊 Prediction History Dashboard</h2>
+    <div class="text-end mb-3">
+        <a href="/" class="btn btn-primary">🔙 Back to Detector</a>
+    </div>
+    <table class="table table-bordered table-hover shadow-sm bg-white">
+        <thead>
+        <tr>
+            <th>Email Message</th>
+            <th>Prediction</th>
+            <th>Spam Category</th>
+            <th>Spam Score (%)</th>
+            <th>Timestamp</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in predictions %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td><strong>{{ row[1] }}</strong></td>
+            <td>{{ row[2] }}</td>
+            <td>{{ row[3] }}</td>
+            <td>{{ row[4] }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

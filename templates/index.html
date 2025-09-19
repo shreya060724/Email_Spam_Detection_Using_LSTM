@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <title>CyberShield AI - Email Threat Detection System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {{ moment.include_moment() }}
+
+</head>
+<body class="bg-body">
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg cyber-nav shadow-lg">
+    <div class="container-fluid">
+        <div class="navbar-brand-container">
+            <div class="brand-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div class="brand-text">
+                <span class="brand-main">CyberShield AI</span>
+                <span class="brand-sub">Email Threat Detection</span>
+            </div>
+        </div>
+        
+        <div class="ms-auto d-flex align-items-center nav-controls">
+            <button class="btn btn-cyber-outline me-2" onclick="toggleDarkMode()" id="theme-toggle">
+                <i class="fas fa-moon"></i>
+                <span class="btn-text">Dark Mode</span>
+            </button>
+            <a href="/history" class="btn btn-cyber-primary">
+                <i class="fas fa-history"></i>
+                <span class="btn-text">Threat History</span>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        <span class="gradient-text">Advanced Email</span><br>
+                        <span class="cyber-text">Threat Detection</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Powered by Deep Learning LSTM Neural Networks for Real-time Cyber Defense
+                    </p>
+                    <div class="feature-badges">
+                        <span class="feature-badge">
+                            <i class="fas fa-brain"></i> Deep Learning
+                        </span>
+                        <span class="feature-badge">
+                            <i class="fas fa-shield-virus"></i> Cyber Defense
+                        </span>
+                        <span class="feature-badge">
+                            <i class="fas fa-chart-line"></i> AI Analytics
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="hero-visual">
+                    <div class="security-dashboard">
+                        <div class="dashboard-header">
+                            <i class="fas fa-desktop"></i>
+                            <span>Security Monitor</span>
+                        </div>
+                        <div class="scan-animation">
+                            <div class="scan-line"></div>
+                            <div class="data-points">
+                                <div class="data-point" style="top: 20%; left: 30%;"></div>
+                                <div class="data-point" style="top: 40%; left: 70%;"></div>
+                                <div class="data-point" style="top: 60%; left: 20%;"></div>
+                                <div class="data-point" style="top: 80%; left: 80%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Analysis Section -->
+<div class="container analysis-section">
+    <div class="analysis-card">
+        <div class="card-header-custom">
+            <div class="header-content">
+                <div class="header-icon">
+                    <i class="fas fa-search"></i>
+                </div>
+                <div class="header-text">
+                    <h3>Email Threat Analysis</h3>
+                    <p>Enter email content for AI-powered spam and threat detection</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body-custom">
+            <form action="/predict" method="POST" class="analysis-form">
+                <div class="input-group-custom">
+                    <label class="form-label-custom">
+                        <i class="fas fa-envelope"></i>
+                        Email Content Analysis
+                    </label>
+                    <div class="textarea-container">
+                        <textarea name="message" class="form-control-custom" rows="6" required 
+                                placeholder="Paste your email content here for advanced threat detection and spam analysis..."></textarea>
+                        <div class="input-decoration"></div>
+                    </div>
+                </div>
+                <div class="input-group-custom">
+                    <label class="form-label-custom">
+                        <i class="fas fa-heading"></i>
+                        Optional: Paste Raw Email Headers (for SPF/DKIM/DMARC checks)
+                    </label>
+                    <div class="textarea-container">
+                        <textarea name="headers" class="form-control-custom" rows="4" 
+                                placeholder="Paste the full raw headers (Authentication-Results, Received-SPF, DKIM-Signature, From, etc.)"></textarea>
+                        <div class="input-decoration"></div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-analyze" id="submit-btn">
+                    <span id="btn-content">
+                        <i class="fas fa-shield-alt"></i>
+                        <span id="btn-text">Initiate Deep Analysis</span>
+                    </span>
+                    <span id="btn-loader" class="analyze-loader d-none">
+                        <i class="fas fa-cog fa-spin"></i>
+                        <span>Analyzing Threats...</span>
+                    </span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {% if prediction %}
+    <!-- Results Section -->
+    <div class="results-section mt-4">
+        <div class="threat-report-card">
+            <div class="report-header">
+                <div class="report-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>Threat Analysis Report</h3>
+                </div>
+                <div class="report-timestamp">
+                    <i class="fas fa-clock"></i>
+                    <span>Generated: {{ moment().format('MMM DD, YYYY - HH:mm:ss') }}</span>
+                </div>
+            </div>
+
+            <div class="threat-overview">
+                <div class="threat-status">
+                    <div class="status-indicator {{ 'high-threat' if prediction == 'Spam' else 'low-threat' }}">
+                        <div class="status-icon">
+                            <i class="{{ 'fas fa-exclamation-triangle' if prediction == 'Spam' else 'fas fa-check-circle' }}"></i>
+                        </div>
+                        <div class="status-text">
+                            <h4>{{ 'HIGH THREAT DETECTED' if prediction == 'Spam' else 'NO THREAT DETECTED' }}</h4>
+                            <p>{{ 'Potential spam/malicious content identified' if prediction == 'Spam' else 'Content appears legitimate and safe' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analysis-details">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="detail-card prediction-card">
+                            <div class="detail-header">
+                                <i class="fas fa-robot"></i>
+                                <h5>AI Prediction</h5>
+                            </div>
+                            <div class="detail-value {{ 'threat-text' if prediction == 'Spam' else 'safe-text' }}">
+                                {{ prediction }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="detail-card category-card">
+                            <div class="detail-header">
+                                <i class="fas fa-tags"></i>
+                                <h5>Threat Category</h5>
+                            </div>
+                            <div class="detail-value">
+                                {{ category }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="detail-card confidence-card">
+                            <div class="detail-header">
+                                <i class="fas fa-percent"></i>
+                                <h5>Confidence Score</h5>
+                            </div>
+                            <div class="detail-value">
+                                {{ spam if prediction == 'Spam' else notspam }}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualization-section">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="chart-container">
+                            <h5><i class="fas fa-chart-pie"></i> Threat Probability Distribution</h5>
+                            <div class="chart-wrapper">
+                                <canvas id="resultChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="risk-assessment">
+                            <h5><i class="fas fa-shield-alt"></i> Risk Assessment</h5>
+                            <div class="risk-meter">
+                                <div class="risk-bar">
+                                    <div class="risk-fill" style="width: {{ spam }}%"></div>
+                                </div>
+                                <div class="risk-labels">
+                                    <span class="risk-low">Low Risk</span>
+                                    <span class="risk-high">High Risk</span>
+                                </div>
+                            </div>
+                            <div class="risk-details">
+                                <div class="risk-item">
+                                    <span class="risk-label">Spam Probability:</span>
+                                    <span class="risk-value">{{ spam }}%</span>
+                                </div>
+                                <div class="risk-item">
+                                    <span class="risk-label">Safe Probability:</span>
+                                    <span class="risk-value">{{ notspam }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analyzed-content">
+                <h5><i class="fas fa-file-alt"></i> Analyzed Content</h5>
+                <div class="content-preview">
+                    <div class="content-text">{{ message }}</div>
+                </div>
+            </div>
+
+            <!-- URL/Domain Intelligence -->
+            <div class="analyzed-content">
+                <h5><i class="fas fa-link"></i> URL & Domain Intelligence</h5>
+                {% if url_findings and url_findings|length > 0 %}
+                <div class="content-preview">
+                    <ul>
+                        {% for u in url_findings %}
+                        <li>
+                            <strong>{{ u.url }}</strong>
+                            <div class="text-muted" style="font-size: 0.9rem;">
+                                host={{ u.host }}
+                                {% if u.is_punycode %}| punycode{% endif %}
+                                {% if u.is_suspicious_tld %}| suspicious TLD{% endif %}
+                                {% if u.has_ip_host %}| raw IP host{% endif %}
+                                {% if u.path_depth > 4 %}| deep path{% endif %}
+                                {% if u.long_query %}| long query{% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% if homograph_info %}
+                    <div class="mt-2">
+                        <div>IDN decoded: <strong>{{ homograph_info.idn_decoded or 'n/a' }}</strong> {% if homograph_info.punycode %}<span class="text-warning">(punycode)</span>{% endif %}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="content-preview">
+                    <div class="text-muted">No URLs detected in content.</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Header / Sender Authentication Checks -->
+            <div class="analyzed-content">
+                <h5><i class="fas fa-id-badge"></i> Sender Authentication (SPF / DKIM / DMARC)</h5>
+                <div class="content-preview">
+                    {% if header_findings and header_findings.present %}
+                    <div>From Domain: <strong>{{ header_findings.from_domain or 'unknown' }}</strong></div>
+                    <div>SPF: <strong>{{ header_findings.spf }}</strong> | DKIM: <strong>{{ header_findings.dkim }}</strong> | DMARC: <strong>{{ header_findings.dmarc }}</strong></div>
+                    {% else %}
+                    <div class="text-muted">No headers provided. Paste raw headers to evaluate SPF/DKIM/DMARC.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cybercrime Reporting CTA -->
+            {% if prediction == 'Spam' %}
+            <div class="analyzed-content">
+                <h5><i class="fas fa-flag"></i> Report Cybercrime</h5>
+                <div class="content-preview">
+                    <p class="text-muted">If this looks like phishing or fraud, consider reporting it:</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a class="btn btn-cyber-primary report-link" target="_blank" rel="noopener noreferrer" href="https://www.antiphishing.org/report-phishing/">
+                            <i class="fas fa-shield-virus"></i> Anti‑Phishing Working Group
+                        </a>
+                        <a class="btn btn-cyber-primary report-link" target="_blank" rel="noopener noreferrer" href="https://www.ic3.gov/">
+                            <i class="fas fa-bullhorn"></i> FBI IC3 (Cybercrime)
+                        </a>
+                        <a class="btn btn-cyber-primary report-link" target="_blank" rel="noopener noreferrer" href="https://cybercrime.gov.in/">
+                            <i class="fas fa-university"></i> Indian Cyber Crime Portal
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Footer -->
+<footer class="cyber-footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="footer-logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>CyberShield AI</span>
+                </div>
+                <p>Advanced Email Threat Detection System powered by Deep Learning</p>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <div class="copyright">
+                <p>&copy; 2025 CyberShield AI | Group 6 BE-CSE</p>
+            </div>
+            <div class="footer-links">
+                <span>Built with Deep Learning & Cyber Defense Excellence</span>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- JavaScript -->
+<script>
+// Theme Toggle
+function toggleDarkMode() {
+    const theme = document.documentElement.getAttribute('data-theme');
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    
+    const toggleBtn = document.getElementById('theme-toggle');
+    const icon = toggleBtn.querySelector('i');
+    const text = toggleBtn.querySelector('.btn-text');
+    
+    if (newTheme === 'dark') {
+        icon.className = 'fas fa-sun';
+        text.textContent = 'Light Mode';
+    } else {
+        icon.className = 'fas fa-moon';
+        text.textContent = 'Dark Mode';
+    }
+}
+
+// Form submission animation
+document.querySelector(".analysis-form").addEventListener("submit", function () {
+    document.getElementById("btn-content").classList.add("d-none");
+    document.getElementById("btn-loader").classList.remove("d-none");
+});
+
+// Chart rendering
+{% if prediction %}
+const ctx = document.getElementById('resultChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Spam Risk', 'Safe Content'],
+        datasets: [{
+            data: [{{ spam }}, {{ notspam }}],
+            backgroundColor: [
+                'rgba(220, 53, 69, 0.8)',
+                'rgba(25, 135, 84, 0.8)'
+            ],
+            borderColor: [
+                'rgba(220, 53, 69, 1)',
+                'rgba(25, 135, 84, 1)'
+            ],
+            borderWidth: 2,
+            hoverBackgroundColor: [
+                'rgba(220, 53, 69, 0.9)',
+                'rgba(25, 135, 84, 0.9)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { 
+                position: 'bottom',
+                labels: {
+                    padding: 20,
+                    font: {
+                        size: 12,
+                        family: 'Inter'
+                    }
+                }
+            },
+            title: { 
+                display: true, 
+                text: 'Threat Analysis Results',
+                font: {
+                    size: 14,
+                    family: 'Inter',
+                    weight: '600'
+                },
+                padding: 20
+            }
+        },
+        animation: {
+            animateRotate: true,
+            duration: 2000
+        }
+    }
+});
+{% endif %}
+
+// Animate elements on scroll
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+        }
+    });
+}, observerOptions);
+
+// Observe elements for animation
+document.addEventListener('DOMContentLoaded', () => {
+    const animateElements = document.querySelectorAll('.analysis-card, .results-section, .threat-report-card');
+    animateElements.forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(el);
+    });
+
+    // If we have a detected malicious URL, append it to the Anti‑Phishing link as context
+    const apwg = document.querySelector('.report-link[href*="antiphishing"]');
+    const firstUrl = {{ first_malicious_url|tojson|safe if first_malicious_url else 'null' }};
+    if (apwg && firstUrl) {
+        const u = new URL(apwg.href);
+        // Not all endpoints accept URL params, but keep it for potential handlers
+        u.searchParams.set('source_url', firstUrl);
+        apwg.href = u.toString();
+    }
+});
+</script>
+
+</body>
+</html>
