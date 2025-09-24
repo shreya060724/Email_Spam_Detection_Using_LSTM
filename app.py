@@ -6,12 +6,12 @@ import os
 from flask_moment import Moment
 
 # Modular services for NLP and inference
-from nlp.preprocess import clean_text
+from nlp.preprocess import clean_text, enhanced_clean_text, extract_content_features
 from services.model_service import LSTMService, EnsembleService
 from services.url_intel import extract_urls, analyze_urls, compute_url_risk
 from services.header_auth import parse_auth_headers
 from services.homograph import detect_homograph
-from services.heuristics import phishing_phrase_score, display_name_domain_mismatch, apply_allowlist
+from services.heuristics import phishing_phrase_score, display_name_domain_mismatch, apply_allowlist, comprehensive_content_analysis
 import pickle
 
 
@@ -63,9 +63,9 @@ def predict():
     message = request.form['message']
     raw_headers = request.form.get('headers', '').strip()
 
-    # ---------- NLP Preprocessing (robust) ----------
-    # Clean the raw email text using NLTK: remove URLs/emails, tokenize, stopwords, lemmatize
-    cleaned_text = clean_text(message)
+    # ---------- Enhanced NLP Preprocessing ----------
+    # Use enhanced preprocessing that preserves important spam indicators
+    cleaned_text, content_features = enhanced_clean_text(message)
 
     # ---------- URL/Domain Intelligence ----------
     urls_in_message = extract_urls(message)
@@ -82,23 +82,29 @@ def predict():
         extra_risk = (homograph_info.get('homograph_risk', 0.0) if homograph_info else 0.0)
         url_risk_score = float(np.clip(url_risk_score + extra_risk, 0.0, 1.0))
 
-    # ---------- LSTM Prediction (+ optional ensemble) ----------
-    # Use LSTM for spam probability and category distribution; blend with URL, headers, SBERT
+    # ---------- Enhanced Content Analysis ----------
     # Parse headers before blending to incorporate header risk
     header_findings = parse_auth_headers(raw_headers)
-    # Heuristic boosters
-    phrase_score = phishing_phrase_score(message)
+    
+    # Enhanced heuristic analysis
+    comprehensive_analysis = comprehensive_content_analysis(message)
+    phrase_score = comprehensive_analysis.get('phishing_phrases', 0.0)
     display_mismatch = display_name_domain_mismatch(raw_headers)
+    
+    # Merge content features with comprehensive analysis
+    content_features.update(comprehensive_analysis)
 
+    # ---------- LSTM Prediction (+ enhanced ensemble) ----------
     blended = ensemble.blend(cleaned_text=cleaned_text,
                              url_risk_score=url_risk_score,
                              header_findings=header_findings,
                              phrase_score=phrase_score,
-                             display_mismatch=display_mismatch)
+                             display_mismatch=display_mismatch,
+                             content_features=content_features)
     spam_prob = blended['spam_prob']
     category_probs = np.array(blended['category_probs']) if blended['category_probs'] else np.array([])
 
-    # ---------- Rule-based safety overrides ----------
+    # ---------- Enhanced Rule-based safety overrides ----------
     has_risky_url = any([
         (u.get('is_suspicious_tld') or u.get('has_ip_host') or (u.get('path_depth', 0) or 0) > 4 or u.get('long_query'))
         for u in (url_findings or [])
@@ -110,14 +116,35 @@ def predict():
         dmarc = header_findings.get('dmarc')
         header_fail = (dmarc == 'fail') or ((spf == 'fail') and (dkim == 'fail'))
 
+    # Enhanced content-only detection rules
+    content_risk_score = blended.get('content_risk', 0.0)
+    has_high_content_risk = content_risk_score > 0.6
+    
+    # Strong content indicators
+    has_urgency = content_features.get('urgency_score', 0.0) > 0.5
+    has_winner_indicators = content_features.get('winner_score', 0.0) > 0.5
+    has_suspicious_actions = content_features.get('suspicious_action_score', 0.0) > 0.5
+    
+    # Multiple strong indicators = very likely spam
+    strong_indicators = sum([has_urgency, has_winner_indicators, has_suspicious_actions, has_risky_url])
+    
     if header_fail and has_risky_url:
         spam_prob = max(spam_prob, 0.90)
     elif header_fail or (has_risky_url and url_risk_score > 0.40):
         spam_prob = max(spam_prob, 0.75)
+    elif strong_indicators >= 3:  # Multiple strong content indicators
+        spam_prob = max(spam_prob, 0.85)
+    elif strong_indicators >= 2:  # Two strong content indicators
+        spam_prob = max(spam_prob, 0.70)
+    elif has_high_content_risk:  # High overall content risk
+        spam_prob = max(spam_prob, 0.65)
 
     # Apply allowlist attenuation then final threshold
     spam_prob = apply_allowlist(spam_prob, raw_headers)
-    prediction = "Spam" if spam_prob > 0.45 else "Not Spam"
+    
+    # Lower threshold for content-only detection (no headers)
+    threshold = 0.35 if not header_findings or not header_findings.get('present') else 0.45
+    prediction = "Spam" if spam_prob > threshold else "Not Spam"
     spam_pct = round(spam_prob * 100, 2)
     notspam_pct = round((1 - spam_prob) * 100, 2)
 

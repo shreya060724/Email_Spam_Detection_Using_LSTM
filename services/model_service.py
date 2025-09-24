@@ -52,12 +52,13 @@ class EnsembleService:
         self.phrase_weight = phrase_weight
         self.display_weight = display_weight
 
-    def blend(self, cleaned_text: str, url_risk_score: float, header_findings: Optional[Dict] = None, phrase_score: float = 0.0, display_mismatch: float = 0.0) -> Dict[str, float]:
+    def blend(self, cleaned_text: str, url_risk_score: float, header_findings: Optional[Dict] = None, phrase_score: float = 0.0, display_mismatch: float = 0.0, content_features: Optional[Dict] = None) -> Dict[str, float]:
         spam_prob, category_probs = self.lstm.predict(cleaned_text)
 
         # Header-based risk: penalize fail signals; unknown contributes little
         header_risk = 0.0
-        if header_findings and header_findings.get('present'):
+        has_headers = header_findings and header_findings.get('present')
+        if has_headers:
             spf = header_findings.get('spf', 'unknown')
             dkim = header_findings.get('dkim', 'unknown')
             dmarc = header_findings.get('dmarc', 'unknown')
@@ -66,22 +67,49 @@ class EnsembleService:
             header_risk += 0.5 if dmarc == 'fail' else (0.05 if dmarc == 'unknown' else 0.0)
             header_risk = float(np.clip(header_risk, 0.0, 1.0))
 
-        # Soft-vote: weighted average between LSTM, URL heuristic, and SBERT heuristic
-        base_weight = 1.0 - self.url_weight - self.header_weight - self.phrase_weight - self.display_weight
-        base_weight = max(0.0, base_weight)
-        blended_spam = (
-            base_weight * spam_prob
-            + self.url_weight * url_risk_score
-            + self.header_weight * header_risk
-            + self.phrase_weight * float(np.clip(phrase_score, 0.0, 1.0))
-            + self.display_weight * float(np.clip(display_mismatch, 0.0, 1.0))
-        )
+        # Content-based features (when no headers available, rely more on content)
+        content_risk = 0.0
+        if content_features:
+            # Combine various content indicators
+            content_risk += content_features.get('urgency_score', 0.0) * 0.3
+            content_risk += content_features.get('winner_score', 0.0) * 0.25
+            content_risk += content_features.get('suspicious_action_score', 0.0) * 0.2
+            content_risk += content_features.get('has_url', 0.0) * 0.15
+            content_risk += content_features.get('has_currency', 0.0) * 0.1
+            content_risk = float(np.clip(content_risk, 0.0, 1.0))
+
+        # Adaptive weighting: when no headers, give much more weight to LSTM
+        if has_headers:
+            # With headers: use original weights
+            base_weight = 1.0 - self.url_weight - self.header_weight - self.phrase_weight - self.display_weight - 0.2
+            base_weight = max(0.0, base_weight)
+            blended_spam = (
+                base_weight * spam_prob
+                + self.url_weight * url_risk_score
+                + self.header_weight * header_risk
+                + self.phrase_weight * float(np.clip(phrase_score, 0.0, 1.0))
+                + self.display_weight * float(np.clip(display_mismatch, 0.0, 1.0))
+                + 0.2 * content_risk
+            )
+        else:
+            # Without headers: give much more weight to LSTM, less to other factors
+            lstm_weight = 0.7  # 70% weight to LSTM
+            url_weight = 0.15   # 15% to URL risk
+            content_weight = 0.15  # 15% to content features
+            
+            blended_spam = (
+                lstm_weight * spam_prob
+                + url_weight * url_risk_score
+                + content_weight * content_risk
+            )
+        
         blended_spam = float(np.clip(blended_spam, 0.0, 1.0))
 
         return {
             'spam_prob': blended_spam,
             'raw_spam_prob': float(spam_prob),
-            'category_probs': category_probs.tolist() if category_probs.size else []
+            'category_probs': category_probs.tolist() if category_probs.size else [],
+            'content_risk': content_risk
         }
 
 
